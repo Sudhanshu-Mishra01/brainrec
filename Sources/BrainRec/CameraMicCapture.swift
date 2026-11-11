@@ -93,7 +93,8 @@ final class CameraMicCapture: NSObject {
         var chosenCamera: AVCaptureDevice?
 
         session.beginConfiguration()
-        session.sessionPreset = .inputPriority
+        // No preset needed: on macOS, setting device.activeFormat (below) switches the session to
+        // input-priority automatically. (AVCaptureSession.Preset.inputPriority does not exist on macOS.)
 
         if let v = videoInput { session.removeInput(v); videoInput = nil }
         if let a = audioInput { session.removeInput(a); audioInput = nil }
