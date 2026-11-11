@@ -1,0 +1,48 @@
+# Compiles BrainRec on a real Mac in the cloud. This proves the code BUILDS; it cannot test camera / screen
+# recording (CI machines have no camera, no screen permission). If the runner label below is retired, use a newer macos-* label.
+name: Build on macOS
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  swiftpm:
+    name: Swift package + app bundle
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain versions
+        run: |
+          sw_vers
+          swift --version
+          xcodebuild -version
+      - name: Build (release)
+        run: swift build -c release
+      - name: Assemble dev app (not sandboxed)
+        run: ./build.sh
+      - name: Assemble sandboxed app (App Store entitlements)
+        run: SANDBOX=1 ./build.sh
+      - name: Check signature and entitlements
+        run: |
+          codesign -dv --entitlements - BrainRec.app 2>&1 | head -30
+          plutil -lint BrainRec.app/Contents/Info.plist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BrainRec-sandboxed-unsigned
+          path: BrainRec.app
+
+  xcode-project:
+    name: XcodeGen project + xcodebuild
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Build with xcodebuild (no signing)
+        run: |
+          xcodebuild -project BrainRec.xcodeproj -scheme BrainRec -configuration Release \
+            -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
